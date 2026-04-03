@@ -62,17 +62,21 @@ pio device monitor
 ```
 app_main()
   └─ BACnetTask (FreeRTOS, 8 KB stack)
-       ├─ wifi_init_sta()          — NVS, esp_netif, WiFi STA start
-       │     └─ [DHCP] IP_EVENT_STA_GOT_IP
-       │           └─ bip_set_addr / bip_set_broadcast_addr / bip_set_port
-       ├─ bacnet_init()            — service handlers, Device_Init, bip_init
-       │     └─ bip_init()         — udp_new / udp_bind / udp_recv (lwIP raw API)
-       └─ main loop
-             ├─ periodic timers (dcc, bvlc_maintenance, COV, TSM) every 1 s
-             └─ handler_cov_task()
+       ├─ wifi_init_sta()                — NVS, esp_netif, WiFi STA start
+       └─ outer loop (reconnect-aware)
+             ├─ wait for WIFI_CONNECTED_BIT
+             ├─ first connect  → bacnet_init() (handlers + Device + bip_init + IAm)
+             ├─ reconnect      → bip_init() + IAm only (handlers registered once)
+             └─ inner loop (while connected)
+                   ├─ periodic timers (dcc, bvlc_maintenance, COV, TSM) every 1 s
+                   └─ handler_cov_task()
+
+wifi_init.c event handler
+  ├─ WIFI_EVENT_STA_DISCONNECTED → bip_cleanup(), clear WIFI_CONNECTED_BIT
+  └─ IP_EVENT_STA_GOT_IP         → bip_set_addr/bcast/port, set WIFI_CONNECTED_BIT
 
 lwIP task (runs independently)
-  └─ bip_server_callback()        — bvlc_handler → npdu_handler
+  └─ bip_server_callback()       — bvlc_handler → npdu_handler
 ```
 
 ## Notes
@@ -83,6 +87,9 @@ lwIP task (runs independently)
 - The BACnet object state is not protected by a mutex between the lwIP task
   (callback path) and the BACnet application task. For a production device,
   add appropriate locking around shared BACnet object data.
-- On WiFi disconnect, `bip_cleanup()` removes the UDP PCB. It is re-created
-  automatically when the link comes back and `bip_init()` is called again
-  via the reconnect logic in `wifi_init.c`.
+- On WiFi disconnect, `bip_cleanup()` removes the UDP PCB and clears
+  `WIFI_CONNECTED_BIT`. The BACnet task's outer loop detects this and blocks
+  until the link comes back. On reconnection `bip_init()` opens a fresh UDP
+  PCB with the new IP address and `Send_I_Am()` re-announces the device.
+  Service handlers and the Device object are registered only once (on first
+  connect).

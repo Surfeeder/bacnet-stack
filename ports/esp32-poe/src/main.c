@@ -94,46 +94,59 @@ static void bacnet_init(void)
 static void BACnetTask(void *pvParameters)
 {
     (void)pvParameters;
+    bool bacnet_running = false;
 
     /* Start WiFi and wait until DHCP assigns an address.
      * wifi_init_sta() also calls bip_set_addr/bcast/port in the IP event. */
     wifi_init_sta();
 
-    ESP_LOGI(TAG, "Waiting for WiFi IP…");
-    xEventGroupWaitBits(
-        wifi_event_group, WIFI_CONNECTED_BIT,
-        pdFALSE, /* do not clear */
-        pdTRUE,  /* wait for all bits */
-        portMAX_DELAY);
-
-    bacnet_init();
-
-    /* One-second tick tracking */
-    TickType_t last_tick = xTaskGetTickCount();
-
     for (;;) {
-        vTaskDelay(pdMS_TO_TICKS(10));
-
-        /* Re-acquire connection if we lost it */
+        /* Block until we have an IP address (initial connect or reconnect). */
+        ESP_LOGI(TAG, "Waiting for WiFi IP…");
         xEventGroupWaitBits(
             wifi_event_group, WIFI_CONNECTED_BIT,
-            pdFALSE, pdTRUE, portMAX_DELAY);
+            pdFALSE, /* do not clear the bit */
+            pdTRUE,  /* wait for all bits */
+            portMAX_DELAY);
 
-        TickType_t now = xTaskGetTickCount();
-        if ((now - last_tick) >= pdMS_TO_TICKS(1000)) {
-            last_tick = now;
-            /* Per-second BACnet timers */
-            dcc_timer_seconds(1);
-            bvlc_maintenance_timer(1);
-            handler_cov_timer_seconds(1);
-            tsm_timer_milliseconds(1000);
+        /* (Re-)initialise BACnet/IP each time we get a new IP address.
+         * On reconnect, wifi_init.c has already called bip_cleanup() which
+         * removes the old UDP PCB, so bip_init() opens a fresh one. */
+        if (!bacnet_running) {
+            /* First connection: register handlers and device object once. */
+            bacnet_init();
+        } else {
+            /* Reconnection: re-open the UDP socket with the new IP. */
+            bip_init(NULL);
+            Send_I_Am(&Handler_Transmit_Buffer[0]);
+            ESP_LOGI(TAG, "BACnet/IP re-initialised after reconnect");
         }
+        bacnet_running = true;
 
-        /* COV notification dispatch */
-        handler_cov_task();
+        /* One-second tick tracking */
+        TickType_t last_tick = xTaskGetTickCount();
 
-        /* Note: packet reception is handled automatically by
-         * bip_server_callback() which is called by the lwIP task. */
+        /* Inner loop: run while connected */
+        while (xEventGroupGetBits(wifi_event_group) & WIFI_CONNECTED_BIT) {
+            vTaskDelay(pdMS_TO_TICKS(10));
+
+            TickType_t now = xTaskGetTickCount();
+            if ((now - last_tick) >= pdMS_TO_TICKS(1000)) {
+                last_tick = now;
+                /* Per-second BACnet timers */
+                dcc_timer_seconds(1);
+                bvlc_maintenance_timer(1);
+                handler_cov_timer_seconds(1);
+                tsm_timer_milliseconds(1000);
+            }
+
+            /* COV notification dispatch */
+            handler_cov_task();
+
+            /* Note: packet reception is handled automatically by
+             * bip_server_callback() which is called by the lwIP task. */
+        }
+        /* WiFi dropped — loop back and wait for reconnection */
     }
 }
 

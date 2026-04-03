@@ -2,60 +2,58 @@
 This directory is for project-specific (private) libraries.
 PlatformIO compiles them to static libraries and links them into the firmware.
 
-Place each library's source in its own sub-directory, for example:
+Create a sub-directory lib/bacnet/ and copy the files listed below from the
+repository root, keeping the same relative paths so that #include directives
+resolve correctly.
 
-|--lib
-|  |--bacnet          <-- BACnet stack files (copy from the repo root)
-|  |  |--bacnet/      <-- all headers from include/bacnet/
-|  |  |--*.c          <-- required .c files (see list in readme.txt)
-|  |- readme.txt       <-- THIS FILE
+Required BACnet stack .c files (paths relative to repository root):
 
-Required BACnet stack files (copy from src/ and apps/demo/handler/):
+  src/bacnet/abort.c
+  src/bacnet/bacaddr.c
+  src/bacnet/bacapp.c
+  src/bacnet/bacdcode.c
+  src/bacnet/bacdevobjpropref.c
+  src/bacnet/bacerror.c
+  src/bacnet/bacint.c
+  src/bacnet/bacreal.c
+  src/bacnet/bacstr.c
+  src/bacnet/cov.c
+  src/bacnet/datetime.c
+  src/bacnet/dcc.c
+  src/bacnet/hostnport.c
+  src/bacnet/iam.c
+  src/bacnet/memcopy.c
+  src/bacnet/npdu.c
+  src/bacnet/proplist.c
+  src/bacnet/reject.c
+  src/bacnet/rp.c
+  src/bacnet/rpm.c
+  src/bacnet/whois.c
+  src/bacnet/wp.c
+  src/bacnet/datalink/bvlc.c
+  src/bacnet/basic/binding/address.c
+  src/bacnet/basic/bbmd/h_bbmd.c
+  src/bacnet/basic/npdu/h_npdu.c
+  src/bacnet/basic/object/device.c
+  src/bacnet/basic/service/h_apdu.c
+  src/bacnet/basic/service/h_cov.c
+  src/bacnet/basic/service/h_noserv.c
+  src/bacnet/basic/service/h_rp.c
+  src/bacnet/basic/service/h_rpm.c
+  src/bacnet/basic/service/h_ucov.c
+  src/bacnet/basic/service/h_whois.c
+  src/bacnet/basic/service/h_wp.c
+  src/bacnet/basic/service/s_iam.c
+  src/bacnet/basic/sys/debug.c
+  src/bacnet/basic/tsm/tsm.c
 
-  abort.c
-  address.c
-  apdu.c
-  bacaddr.c
-  bacapp.c
-  bacdcode.c
-  bacerror.c
-  bacint.c
-  bacreal.c
-  bacstr.c
-  bvlc.c
-  cov.c
-  datetime.c
-  bacdevobjpropref.c
-  dcc.c
-  debug.c
-  h_bbmd.c
-  h_cov.c
-  h_ucov.c
-  h_npdu.c
-  h_rp.c
-  h_rpm.c
-  h_whois.c
-  h_wp.c
-  iam.c
-  hostnport.c
-  memcopy.c
-  noserv.c
-  npdu.c
-  proplist.c
-  reject.c
-  rp.c
-  rpm.c
-  s_iam.c
-  tsm.c
-  whois.c
-  wp.c
-  device.c            (from bacnet/basic/object/)
-  ai.c                (optional — Analog Input object)
-  bo.c                (optional — Binary Output object)
+Optional object files (add if you need these BACnet object types):
+  src/bacnet/basic/object/ai.c   (Analog Input)
+  src/bacnet/basic/object/bo.c   (Binary Output)
 
 Copy all headers from include/ keeping the directory structure, e.g.:
-  lib/bacnet/bacnet/bacdef.h
-  lib/bacnet/bacnet/datalink/bip.h
+  lib/bacnet/include/bacnet/bacdef.h
+  lib/bacnet/include/bacnet/datalink/bip.h
   ...
 
 More information about PlatformIO Library Dependency Finder:
